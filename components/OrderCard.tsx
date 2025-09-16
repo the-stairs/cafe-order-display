@@ -35,14 +35,14 @@ export default function OrderCard({
   const cardVariants = {
     initial: {
       scale: 1,
-      backgroundColor: isLatest ? (isNew ? "#2D5FFF" : "#1E2A44") : "#E9EEF7",
+      backgroundColor: isLatest ? (isNew ? "#FF7300" : "#1E2A44") : "#E9EEF7",
     },
     animate: {
       scale: isNew ? 1.06 : 1.0,
-      backgroundColor: isLatest ? (isNew ? "#2D5FFF" : "#1E2A44") : "#E9EEF7",
+      backgroundColor: isLatest ? (isNew ? "#FF7300" : "#1E2A44") : "#E9EEF7",
     },
     highlight: {
-      backgroundColor: isLatest ? "#2D5FFF" : "#E9EEF7",
+      backgroundColor: isLatest ? "#FF7300" : "#E9EEF7",
     },
   };
 
