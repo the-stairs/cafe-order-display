@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   ref,
@@ -31,7 +31,20 @@ function isValidOrderStatus(status: unknown): status is OrderStatus {
   );
 }
 
-export default function DisplayPage() {
+// 로딩 컴포넌트
+function LoadingComponent() {
+  return (
+    <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="text-center">
+        <div className="text-6xl mb-4">🔄</div>
+        <p className="text-xl text-gray-500">로딩 중...</p>
+      </div>
+    </div>
+  );
+}
+
+// 실제 디스플레이 컴포넌트
+function DisplayContent() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [newOrderIds, setNewOrderIds] = useState<{ [orderId: string]: number }>(
@@ -447,5 +460,14 @@ export default function DisplayPage() {
         </div>
       </footer>
     </div>
+  );
+}
+
+// Suspense로 감싼 메인 컴포넌트
+export default function DisplayPage() {
+  return (
+    <Suspense fallback={<LoadingComponent />}>
+      <DisplayContent />
+    </Suspense>
   );
 }
