@@ -10,7 +10,7 @@ import {
   remove,
 } from "firebase/database";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, Suspense } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -45,7 +45,20 @@ interface DeletedOrder {
   status: string;
 }
 
-export default function ControllerPage() {
+// 로딩 컴포넌트
+function LoadingComponent() {
+  return (
+    <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="text-center">
+        <div className="text-6xl mb-4">🔄</div>
+        <p className="text-xl text-gray-500">로딩 중...</p>
+      </div>
+    </div>
+  );
+}
+
+// 실제 컨트롤러 컴포넌트
+function ControllerContent() {
   const [isConnected, setIsConnected] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
@@ -519,5 +532,14 @@ export default function ControllerPage() {
         </div>
       </footer>
     </div>
+  );
+}
+
+// Suspense로 감싼 메인 컴포넌트
+export default function ControllerPage() {
+  return (
+    <Suspense fallback={<LoadingComponent />}>
+      <ControllerContent />
+    </Suspense>
   );
 }
