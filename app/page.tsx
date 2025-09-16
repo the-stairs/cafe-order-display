@@ -2,92 +2,12 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { db } from "../utils/firebaseClient";
-import { ref, push } from "firebase/database";
 
-// 기본 테스트 Room ID (환경 변수로 설정 가능)
-const DEFAULT_ROOM_ID = process.env.NEXT_PUBLIC_DEFAULT_ROOM_ID || "AB12";
+// 기본 Room ID (환경 변수로 설정 가능)
+const DEFAULT_ROOM_ID = process.env.NEXT_PUBLIC_DEFAULT_ROOM_ID || "Cafe_Seeik";
 
 export default function Home() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState("");
   const [roomId, setRoomId] = useState(DEFAULT_ROOM_ID);
-
-  // 테스트 데이터를 Firebase에 추가하는 함수
-  const addTestData = async () => {
-    setIsLoading(true);
-    setMessage("");
-
-    try {
-      // Firebase 설정 확인
-      console.log(
-        "Firebase Database URL:",
-        process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL
-      );
-      console.log("Firebase Config:", {
-        databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      });
-
-      // 현재 설정된 룸 ID 사용
-
-      // 랜덤한 주문번호 생성 (1001-9999 범위)
-      const orderNumber = Math.floor(Math.random() * 8999) + 1001;
-
-      // Firebase에 데이터 추가
-      const ordersRef = ref(db, `rooms/${roomId}/orders`);
-      console.log("Adding data to path:", `rooms/${roomId}/orders`);
-
-      const result = await push(ordersRef, {
-        number: orderNumber,
-        status: "ready",
-        createdAt: Date.now(),
-      });
-
-      console.log("Push result:", result);
-      setMessage(`✅ 주문번호 ${orderNumber}이(가) 성공적으로 추가되었습니다!`);
-    } catch (error) {
-      console.error("Error adding test data:", error);
-      setMessage(`❌ 데이터 추가 중 오류가 발생했습니다: ${error}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // 여러 개의 테스트 데이터를 한 번에 추가하는 함수
-  const addMultipleTestData = async () => {
-    setIsLoading(true);
-    setMessage("");
-
-    try {
-      const ordersRef = ref(db, `rooms/${roomId}/orders`);
-
-      // 5개의 테스트 주문번호 생성
-      const testOrders = [];
-      for (let i = 0; i < 5; i++) {
-        const orderNumber = Math.floor(Math.random() * 8999) + 1001;
-        testOrders.push({
-          number: orderNumber,
-          status: "ready",
-          createdAt: Date.now() + i * 1000, // 1초씩 차이를 두어 생성
-        });
-      }
-
-      // 모든 주문을 Firebase에 추가
-      for (const order of testOrders) {
-        await push(ordersRef, order);
-      }
-
-      setMessage(
-        `✅ ${testOrders.length}개의 테스트 주문이 성공적으로 추가되었습니다!`
-      );
-    } catch (error) {
-      console.error("Error adding multiple test data:", error);
-      setMessage(`❌ 데이터 추가 중 오류가 발생했습니다: ${error}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
@@ -111,49 +31,21 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Firebase 테스트 버튼들 */}
-        <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-lg w-full max-w-md">
-          <h2 className="text-lg font-semibold mb-4">Firebase 테스트</h2>
-
-          <div className="space-y-4">
-            <button
-              onClick={addTestData}
-              disabled={isLoading}
-              className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-            >
-              {isLoading ? "추가 중..." : "테스트 주문번호 1개 추가"}
-            </button>
-
-            <button
-              onClick={addMultipleTestData}
-              disabled={isLoading}
-              className="w-full bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-            >
-              {isLoading ? "추가 중..." : "테스트 주문번호 5개 추가"}
-            </button>
-          </div>
-
-          {/* 메시지 표시 영역 */}
-          {message && (
-            <div className="mt-4 p-3 bg-white dark:bg-gray-700 border rounded-lg">
-              <p className="text-sm">{message}</p>
-            </div>
-          )}
+        <div className="text-center sm:text-left max-w-md">
+          <h2 className="text-lg font-semibold mb-4">사용 방법</h2>
+          <ol className="font-mono list-inside list-decimal text-sm/6 space-y-2">
+            <li className="tracking-[-.01em]">
+              아래에서 Room ID를 설정하세요.
+            </li>
+            <li className="tracking-[-.01em]">
+              Controller 페이지에서 주문번호를 관리하세요.
+            </li>
+            <li className="tracking-[-.01em]">
+              Display 페이지에서 주문번호를 확인하고 🔊 버튼으로 사운드를
+              켜세요.
+            </li>
+          </ol>
         </div>
-
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            위 버튼을 클릭하여 Firebase Realtime Database에 테스트 데이터를
-            추가할 수 있습니다.
-          </li>
-          <li className="mb-2 tracking-[-.01em]">
-            Firebase 콘솔에서 데이터가 정상적으로 추가되는지 확인해보세요.
-          </li>
-          <li className="tracking-[-.01em]">
-            Display 페이지에서 🔊 버튼을 클릭하여 사운드를 켜고 새 주문 알림음을
-            테스트해보세요.
-          </li>
-        </ol>
 
         {/* Room ID 설정 */}
         <div className="bg-blue-50 dark:bg-blue-900 p-6 rounded-lg w-full max-w-md">
@@ -171,7 +63,7 @@ export default function Home() {
                 type="text"
                 value={roomId}
                 onChange={(e) => setRoomId(e.target.value.toUpperCase())}
-                placeholder="예: AB12"
+                placeholder="예: Cafe_Seeik"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 maxLength={6}
               />

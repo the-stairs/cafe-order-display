@@ -17,6 +17,7 @@ import { z } from "zod";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { db } from "../../utils/firebaseClient";
+import RecommendedNumbers from "./RecommendedNumbers";
 
 // Zod 스키마로 입력 유효성 검사 (숫자만 허용)
 const orderNumberSchema = z.object({
@@ -66,6 +67,7 @@ function ControllerContent() {
     null
   );
   const [serverTimeOffset, setServerTimeOffset] = useState(0);
+  const [recommendedNumbers, setRecommendedNumbers] = useState<number[]>([]);
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -134,11 +136,31 @@ function ControllerContent() {
     return Date.now() + serverTimeOffset;
   }, [serverTimeOffset]);
 
-  // 최근 주문 목록 구독 (Controller에서 확인용)
+  // 추천 번호 계산 함수
+  const calculateRecommendedNumbers = useCallback((orders: Order[]) => {
+    if (orders.length === 0) {
+      setRecommendedNumbers([]);
+      return;
+    }
+
+    // 가장 최근 주문 번호를 기준으로 +1, +2, +3 계산
+    const lastOrderNumber = orders[0].number;
+    const recommended = [
+      lastOrderNumber + 1,
+      lastOrderNumber + 2,
+      lastOrderNumber + 3,
+    ];
+
+    // 999를 초과하지 않도록 제한
+    const validRecommended = recommended.filter((num) => num <= 999);
+    setRecommendedNumbers(validRecommended);
+  }, []);
+
+  // 주문 목록 구독 (Controller에서 확인용)
   useEffect(() => {
     if (!roomId) return;
 
-    console.log("최근 주문 목록 구독 시작, Room ID:", roomId);
+    console.log(" 주문 목록 구독 시작, Room ID:", roomId);
     const recentOrdersQuery = query(
       ref(db, `rooms/${roomId}/orders`),
       limitToLast(10) // 최근 10개만 표시
@@ -165,17 +187,65 @@ function ControllerContent() {
           // 최신순으로 정렬
           orderList.sort((a, b) => b.createdAt - a.createdAt);
           setRecentOrders(orderList);
+          // 추천 번호 계산
+          calculateRecommendedNumbers(orderList);
         } else {
           setRecentOrders([]);
+          calculateRecommendedNumbers([]);
         }
       },
       (error) => {
-        console.error("최근 주문 목록 구독 오류:", error);
+        console.error("주문 목록 구독 오류:", error);
       }
     );
 
     return () => unsubscribeRecentOrders();
-  }, [roomId]);
+  }, [roomId, calculateRecommendedNumbers]);
+
+  // 추천 번호 선택 핸들러
+  const handleSelectRecommendedNumber = async (number: number) => {
+    if (!roomId || isSubmitting) return;
+
+    // 중복 주문번호 방지 검사
+    const isDuplicate = recentOrders.some((order) => order.number === number);
+
+    if (isDuplicate) {
+      toast.error("이미 존재하는 주문번호입니다.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const currentTime = getServerTime();
+      const fiveMinutesFromNow = currentTime + 5 * 60 * 1000; // 5분 후
+
+      const newOrder = {
+        number: number,
+        status: "ready",
+        createdAt: currentTime,
+        expiresAt: fiveMinutesFromNow,
+      };
+
+      console.log("추천 번호로 새 주문 추가:", newOrder);
+
+      // Firebase에 주문 추가
+      const ordersRef = ref(db, `rooms/${roomId}/orders`);
+      await push(ordersRef, newOrder);
+
+      console.log("주문이 성공적으로 추가되었습니다:", number);
+
+      // 성공 알림 (UI 가이드에 따른 메시지)
+      toast.success(`✓ 입력됨`);
+
+      // Undo를 위해 마지막 삭제된 주문 정보 초기화
+      setLastDeletedOrder(null);
+    } catch (error) {
+      console.error("주문 추가 실패:", error);
+      toast.error("주문 추가에 실패했습니다. 다시 시도해주세요.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // 주문 번호 추가 함수
   const onSubmit = async (data: OrderNumberForm) => {
@@ -239,9 +309,7 @@ function ControllerContent() {
       await push(ordersRef, lastDeletedOrder);
 
       console.log("주문이 복구되었습니다:", lastDeletedOrder.number);
-      toast.success(
-        `주문번호 ${lastDeletedOrder.number}이(가) 복구되었습니다.`
-      );
+      toast.success(`입력이 취소되었습니다`);
       setLastDeletedOrder(null);
     } catch (error) {
       console.error("Undo 실패:", error);
@@ -385,6 +453,15 @@ function ControllerContent() {
             </Button>
           </form>
 
+          {/* 추천 번호 버튼 */}
+          <RecommendedNumbers
+            numbers={recommendedNumbers}
+            onSelectNumber={handleSelectRecommendedNumber}
+            lastOrderNumber={
+              recentOrders.length > 0 ? recentOrders[0].number : undefined
+            }
+          />
+
           {/* 간단한 숫자 키패드 */}
           <div className="mt-6">
             <h3 className="text-sm font-medium text-gray-700 mb-3">
@@ -440,11 +517,11 @@ function ControllerContent() {
           </div>
         </div>
 
-        {/* 오른쪽: 최근 주문 목록 */}
+        {/* 오른쪽: 주문 목록 */}
         <div className="bg-white rounded-lg shadow-sm p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-800">
-              최근 주문 목록
+              주문 완료 목록
             </h2>
 
             <Button

@@ -364,12 +364,12 @@ function DisplayContent() {
   }
 
   return (
-    <div className="min-h-screen bg-white p-8">
+    <div className="min-h-screen bg-white py-8">
       {/* 상단 헤더 */}
-      <header className="flex justify-between items-center mb-12">
+      <header className="flex justify-between items-center mb-8 px-10 h-20">
         <div>
-          <h1 className="text-4xl font-bold text-[#1E2A44]">준비 완료</h1>
-          <p className="text-lg text-gray-600 mt-2">PICK UP</p>
+          <h1 className="text-4xl font-bold text-[#0B0B0C]">준비 완료</h1>
+          <p className="text-lg text-gray-600 mt-1">PICK UP</p>
         </div>
 
         {/* 연결 상태 및 Room 정보 표시 */}
@@ -386,7 +386,7 @@ function DisplayContent() {
           >
             <span className="text-lg">{isSoundEnabled ? "🔊" : "🔇"}</span>
             <span className="font-medium text-sm">
-              {isSoundEnabled ? "소리 켜짐" : "소리 꺼짐"}
+              {isSoundEnabled ? "소리 켜짐" : "소리 꺼짐 — 터치하여 켜기"}
             </span>
           </button>
 
@@ -422,7 +422,20 @@ function DisplayContent() {
       </header>
 
       {/* 주문 카드 그리드 */}
-      <main className="flex-1">
+      <main className="flex-1 px-10" role="main" aria-label="주문 디스플레이">
+        {/* 섹션 라벨 */}
+        <div className="mb-6 px-4">
+          <div className="flex items-center gap-4">
+            <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+              최근 완료
+            </h2>
+            <div className="h-px bg-gray-200 flex-1"></div>
+            <span className="text-xs text-gray-400">
+              총 {orders.length}개 주문
+            </span>
+          </div>
+        </div>
+
         {orders.length === 0 ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
@@ -439,14 +452,33 @@ function DisplayContent() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
-            {orders.map((order) => (
-              <OrderCard
-                key={order.id}
-                number={order.number}
-                isNew={Boolean(newOrderIds[order.id])}
-              />
-            ))}
+          <div className="w-full max-w-[1840px] mx-auto">
+            {/* 반응형 격자 레이아웃 */}
+            <div
+              className="grid gap-6 auto-rows-max
+              grid-cols-2 lg:grid-cols-3 xl:grid-cols-4
+            "
+            >
+              {orders.map((order, index) => {
+                const isLatest = index === 0; // 첫 번째가 최신
+                return (
+                  <OrderCard
+                    key={order.id}
+                    number={order.number}
+                    isNew={Boolean(newOrderIds[order.id])}
+                    isLatest={isLatest}
+                    className={`
+                      ${
+                        isLatest
+                          ? "col-span-2 w-full max-w-[656px] lg:max-w-[740px] xl:max-w-[824px]"
+                          : "w-full max-w-[320px] lg:max-w-[360px] xl:max-w-[400px]"
+                      }
+                      transition-all duration-300 ease-in-out
+                    `}
+                  />
+                );
+              })}
+            </div>
           </div>
         )}
       </main>
