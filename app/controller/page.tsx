@@ -8,6 +8,7 @@ import {
   query,
   ref,
   remove,
+  set,
 } from "firebase/database";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState, Suspense } from "react";
@@ -18,6 +19,8 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { db } from "../../utils/firebaseClient";
 import RecommendedNumbers from "./RecommendedNumbers";
+import TTLSettingsDialog from "./TTLSettingsDialog";
+import { Settings } from "lucide-react";
 
 // Zod 스키마로 입력 유효성 검사 (숫자만 허용)
 const orderNumberSchema = z.object({
@@ -68,6 +71,8 @@ function ControllerContent() {
   );
   const [serverTimeOffset, setServerTimeOffset] = useState(0);
   const [recommendedNumbers, setRecommendedNumbers] = useState<number[]>([]);
+  const [showTTLDialog, setShowTTLDialog] = useState(false);
+  const [currentTTL, setCurrentTTL] = useState(300000); // 기본값 5분 (ms)
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -135,6 +140,52 @@ function ControllerContent() {
   const getServerTime = useCallback(() => {
     return Date.now() + serverTimeOffset;
   }, [serverTimeOffset]);
+
+  // TTL 설정값 불러오기
+  useEffect(() => {
+    if (!roomId) return;
+
+    const configRef = ref(db, `rooms/${roomId}/config/ttl`);
+    const unsubscribeTTL = onValue(configRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const ttlValue = snapshot.val();
+        setCurrentTTL(ttlValue);
+        console.log("TTL 설정값 로드:", ttlValue);
+      } else {
+        // 기본값 설정 및 저장
+        const defaultTTL = 300000; // 5분
+        setCurrentTTL(defaultTTL);
+        set(configRef, defaultTTL);
+        console.log("기본 TTL 설정:", defaultTTL);
+      }
+    });
+
+    return () => unsubscribeTTL();
+  }, [roomId]);
+
+  // TTL 변경 함수
+  const handleTTLChange = useCallback(
+    async (ttlMinutes: number) => {
+      if (!roomId) return;
+
+      const ttlMs = ttlMinutes * 60 * 1000;
+      const configRef = ref(db, `rooms/${roomId}/config/ttl`);
+
+      try {
+        await set(configRef, ttlMs);
+        setCurrentTTL(ttlMs);
+        console.log("TTL 설정 변경:", ttlMs);
+
+        // 성공 토스트 메시지
+        toast.success(`만료 시간이 ${ttlMinutes}분으로 변경되었습니다`);
+      } catch (error) {
+        console.error("TTL 설정 실패:", error);
+        toast.error("설정 변경에 실패했습니다. 다시 시도해주세요.");
+        throw error;
+      }
+    },
+    [roomId]
+  );
 
   // 추천 번호 계산 함수
   const calculateRecommendedNumbers = useCallback((orders: Order[]) => {
@@ -217,13 +268,13 @@ function ControllerContent() {
     setIsSubmitting(true);
     try {
       const currentTime = getServerTime();
-      const fiveMinutesFromNow = currentTime + 5 * 60 * 1000; // 5분 후
+      const expiresAt = currentTime + currentTTL; // 현재 TTL 설정 사용
 
       const newOrder = {
         number: number,
         status: "ready",
         createdAt: currentTime,
-        expiresAt: fiveMinutesFromNow,
+        expiresAt: expiresAt,
       };
 
       console.log("추천 번호로 새 주문 추가:", newOrder);
@@ -265,13 +316,13 @@ function ControllerContent() {
     setIsSubmitting(true);
     try {
       const currentTime = getServerTime();
-      const fiveMinutesFromNow = currentTime + 5 * 60 * 1000; // 5분 후
+      const expiresAt = currentTime + currentTTL; // 현재 TTL 설정 사용
 
       const newOrder = {
         number: orderNumber,
         status: "ready",
         createdAt: currentTime,
-        expiresAt: fiveMinutesFromNow,
+        expiresAt: expiresAt,
       };
 
       console.log("새 주문 추가:", newOrder);
@@ -381,30 +432,47 @@ function ControllerContent() {
             <p className="text-gray-600">Controller</p>
           </div>
 
-          {/* 연결 상태 및 Room 정보 */}
-          <div className="flex items-center gap-4">
-            {/* Room ID 표시 */}
-            <div className="bg-blue-50 text-blue-700 px-4 py-2 rounded-full">
-              <span className="font-medium">Room: {roomId}</span>
-            </div>
+          {/* 설정 아이콘 */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowTTLDialog(true)}
+            className="flex items-center gap-2 h-9 px-3"
+            title="자동 만료 시간 설정"
+          >
+            <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline">설정</span>
+          </Button>
+        </div>
 
-            {/* 연결 상태 */}
+        {/* 연결 상태 및 Room 정보 */}
+        <div className="flex items-center gap-4 mt-4">
+          {/* 설정 정보 표시 */}
+          <div className="text-xs text-gray-500">
+            <span>자동 만료: {Math.round(currentTTL / (60 * 1000))}분</span>
+          </div>
+
+          {/* Room ID 표시 */}
+          <div className="bg-blue-50 text-blue-700 px-4 py-2 rounded-full">
+            <span className="font-medium">Room: {roomId}</span>
+          </div>
+
+          {/* 연결 상태 */}
+          <div
+            className={`flex items-center gap-2 px-4 py-2 rounded-full ${
+              isConnected
+                ? "bg-green-100 text-green-700"
+                : "bg-red-100 text-red-700"
+            }`}
+          >
             <div
-              className={`flex items-center gap-2 px-4 py-2 rounded-full ${
-                isConnected
-                  ? "bg-green-100 text-green-700"
-                  : "bg-red-100 text-red-700"
+              className={`w-3 h-3 rounded-full ${
+                isConnected ? "bg-green-500" : "bg-red-500"
               }`}
-            >
-              <div
-                className={`w-3 h-3 rounded-full ${
-                  isConnected ? "bg-green-500" : "bg-red-500"
-                }`}
-              ></div>
-              <span className="font-medium">
-                {isConnected ? "온라인" : "오프라인"}
-              </span>
-            </div>
+            ></div>
+            <span className="font-medium">
+              {isConnected ? "온라인" : "오프라인"}
+            </span>
           </div>
         </div>
       </header>
@@ -608,6 +676,14 @@ function ControllerContent() {
           )}
         </div>
       </footer>
+
+      {/* TTL 설정 다이얼로그 */}
+      <TTLSettingsDialog
+        open={showTTLDialog}
+        onOpenChange={setShowTTLDialog}
+        currentTTL={currentTTL}
+        onTTLChange={handleTTLChange}
+      />
     </div>
   );
 }
